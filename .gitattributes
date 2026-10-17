@@ -1,0 +1,11 @@
+# 统一用 LF，避免 Windows 下 CRLF 混进提交
+* text=auto eol=lf
+
+*.md   text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.csv  text eol=lf
+
+# 二进制/大文件不参与换行转换
+*.pcap binary
+*.inp  text eol=lf

@@ -1,0 +1,85 @@
+# 我的 DHALSIM 场景模板
+# 基于 anytown 示例改写，字段名对照过 dhalsim/parser/config_parser.py 与 physical_process.py
+# 用法：sudo dhalsim 我的场景模板.yaml
+# 注意：plcs / attacks 用 !include 拆文件（依赖 pyyaml-include），这里为了单文件可读性写内联
+
+# ---------- 必填 ----------
+inp_file: my_network.inp
+output_path: output/my_run
+iterations: 2880                 # 迭代号 = hydraulic timestep，不是秒
+
+# ---------- 仿真内核 ----------
+# 二选一：epynet（示例全用它，支持泵速） / wntr（EPA 官方绑定，但缺泵速）
+simulator: epynet
+demand: pdd                      # 透传给 WNTR 的 demand model：pdd / dd
+
+# ---------- 网络拓扑 ----------
+# simple  = 所有 PLC+SCADA 同局域网，共用一个 router
+# complex = 每台各有独立 switch+router，走公网 IP（做 MITM 更真实）
+network_topology_type: complex
+
+log_level: info
+
+# ---------- 数据文件（可选） ----------
+# demand_patterns: demands_anytown_small.csv
+# initial_tank_data: initial_tank.csv
+
+# ---------- PLC 与测点绑定 ----------
+# 铁律：这里的名字必须真实存在于 .inp 里，写错不报错，只是 SCADA 里少一列
+plcs:
+  - name: PLC1
+    actuators:                   # 只能填 valve / pump 的名字
+      - P78
+      - P79
+  - name: PLC2
+    sensors:                     # 只能填 tank名 / junction名 / 阀名F / 泵名F
+      - T41
+  - name: PLC3
+    sensors:
+      - T42
+
+# ---------- 噪声 ----------
+# 加在 PLC 上报值上的高斯噪声尺度，默认 0（干净数据）
+# 想做真实一点的实验就开，wadi 示例用的是 0.25
+noise_scale: 0.25
+
+# ---------- 我的实验开关 ----------
+# 第一轮先全部注释掉，跑通无攻击基线再说
+# 基线不自洽的话，后面所有攻击结论都无效
+
+# 设备侧攻击：直接改执行器输出（控制器被篡改，链路上看不出异常）
+# device_attacks:
+#   - name: close_valve_early
+#     trigger:
+#       type: time               # time / below / above / between
+#       start: 125               # 迭代号
+#       end: 375
+#     actuator: V_ER2i
+#     command: closed
+
+# 网络侧攻击：改报文（需要在 Linux 上装好 netfilterqueue）
+# network_attacks:
+#   - name: tamper_plc2
+#     type: concealment_mitm     # mitm / naive_mitm / simple_dos / concealment_mitm
+#     target: PLC2
+#     offset: 7.0                # 改值方式之一：偏移量
+#     trigger:
+#       type: time
+#       start: 300
+#       end: 900
+#     concealment_data:          # 隐藏攻击：把其余测点伪装成"正常值"
+#       type: value
+#       concealment_value:
+#         - {tag: T41, value: 42.0}
+#         - {tag: T42, value: 84.0}
+
+# 网络事件：不是攻击，只是链路变差（文档只承诺 packet_loss）
+# network_events:
+#   - name: link_loss
+#     type: packet_loss
+#     target: PLC1
+#     trigger:
+#       type: time
+#       start: 648
+#       end: 792
+#     value: 25                  # 丢包百分比
